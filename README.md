@@ -1,4 +1,4 @@
-# lista_de_tarefas
+# lista de Tarefas
 
 Projeto em Flutter que usa vários packeges para treinar.
 
@@ -7,3 +7,5 @@ Projeto em Flutter que usa vários packeges para treinar.
 - FloatingActionButton
 - TextButton
 - path_provider (utilizado para salvar os arquivos dentro do dispositivo)
+- SnackBar
+- Dismissible

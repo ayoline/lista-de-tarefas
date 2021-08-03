@@ -13,24 +13,120 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   List _listaTarefas = [];
+  Map<String, dynamic> _ultimaTarefaRemovida = Map();
 
-  _salvarArquivo() async {
+  TextEditingController _controllerTarefa = TextEditingController();
+
+  Future<File> _getFile() async {
     final diretorio = await getApplicationDocumentsDirectory();
-    var arquivo = File('${diretorio.path}/dados.json');
+    return File('${diretorio.path}/dados.json');
+  }
+
+  _salvarTarefa() {
+    String textoDigitado = _controllerTarefa.text;
 
     // criar dados
     Map<String, dynamic> tarefa = Map();
-    tarefa['titulo'] = 'ir ao mercado';
+    tarefa['titulo'] = textoDigitado;
     tarefa['realizada'] = false;
-    _listaTarefas.add(tarefa);
+
+    setState(() {
+      _listaTarefas.add(tarefa);
+    });
+
+    _salvarArquivo();
+    _controllerTarefa.text = '';
+  }
+
+  _salvarArquivo() async {
+    var arquivo = await _getFile();
 
     String dados = json.encode(_listaTarefas);
     arquivo.writeAsString(dados);
     //print('Caminho: ' + diretorio.path);
   }
 
+  _lerArquivo() async {
+    try {
+      final arquivo = await _getFile();
+      return arquivo.readAsString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _lerArquivo().then((dados) {
+      setState(() {
+        _listaTarefas = json.decode(dados);
+      });
+    });
+  }
+
+  Widget criarItemLista(context, index) {
+    return Dismissible(
+      key: Key(DateTime.now().millisecondsSinceEpoch.toString()),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) {
+        // recuperar ultimo item excluido
+        _ultimaTarefaRemovida = _listaTarefas[index];
+
+        // remove item da lista
+        _listaTarefas.removeAt(index);
+        _salvarArquivo();
+
+        // snackbar
+        final snackBar = SnackBar(
+          content: Text('Tarefa removida!'),
+          duration: Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Desfazer',
+            onPressed: () {
+              setState(() {
+                // Insere novamente item removido na lista
+                _listaTarefas.insert(index, _ultimaTarefaRemovida);
+              });
+              _salvarArquivo();
+            },
+          ),
+        );
+        Scaffold.of(context).showSnackBar(snackBar);
+      },
+      background: Container(
+        color: Colors.red,
+        padding: EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: <Widget>[
+            Icon(
+              Icons.delete,
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ),
+      child: CheckboxListTile(
+        title: Text(_listaTarefas[index]['titulo']),
+        value: _listaTarefas[index]['realizada'],
+        onChanged: (valorAlterado) {
+          setState(() {
+            _listaTarefas[index]['realizada'] = valorAlterado;
+          });
+
+          _salvarArquivo();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    //_salvarArquivo();
+    print('itens: ' + _listaTarefas.toString());
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Lista de tarefas'),
@@ -41,11 +137,7 @@ class _HomeState extends State<Home> {
           Expanded(
             child: ListView.builder(
               itemCount: _listaTarefas.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(_listaTarefas[index]),
-                );
-              },
+              itemBuilder: criarItemLista,
             ),
           ),
         ],
@@ -59,6 +151,7 @@ class _HomeState extends State<Home> {
               return AlertDialog(
                 title: Text('Adicionar tarefa'),
                 content: TextField(
+                  controller: _controllerTarefa,
                   decoration: InputDecoration(labelText: 'Digite sua tarefa'),
                   onChanged: (Text) {},
                 ),
@@ -79,10 +172,11 @@ class _HomeState extends State<Home> {
                           MaterialStateProperty.all<Color>(Colors.blue),
                     ),
                     onPressed: () {
+                      _salvarTarefa();
                       Navigator.pop(context);
                     },
                     child: Text('Salvar'),
-                  )
+                  ),
                 ],
               );
             },
